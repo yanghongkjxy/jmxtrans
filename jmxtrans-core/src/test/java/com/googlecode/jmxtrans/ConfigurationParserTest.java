@@ -30,8 +30,7 @@ import com.googlecode.jmxtrans.model.Server;
 import com.googlecode.jmxtrans.model.ServerFixtures;
 import com.googlecode.jmxtrans.model.ValidationException;
 import com.googlecode.jmxtrans.test.RequiresIO;
-import com.googlecode.jmxtrans.util.JsonUtils;
-import com.kaching.platform.testing.AllowLocalFileAccess;
+import com.googlecode.jmxtrans.util.ProcessConfigUtils;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
@@ -43,9 +42,10 @@ import java.util.List;
 
 import static com.google.common.collect.ImmutableList.of;
 import static com.googlecode.jmxtrans.guice.JmxTransModule.createInjector;
+import static com.googlecode.jmxtrans.model.ServerFixtures.createPool;
+import static com.googlecode.jmxtrans.model.ServerFixtures.dummyServer;
 import static org.assertj.core.api.Assertions.assertThat;
 
-@AllowLocalFileAccess(paths = "*")
 @Category(RequiresIO.class)
 public class ConfigurationParserTest {
 
@@ -53,8 +53,18 @@ public class ConfigurationParserTest {
 
 	@Before
 	public void configureParser() {
-		JsonUtils jsonUtils = createInjector(new JmxTransConfiguration()).getInstance(JsonUtils.class);
-		configurationParser = new ConfigurationParser(jsonUtils);
+		ProcessConfigUtils processConfigUtils = createInjector(new JmxTransConfiguration()).getInstance(ProcessConfigUtils.class);
+		configurationParser = new ConfigurationParser(processConfigUtils);
+	}
+
+	@Test
+	public void mixJsonAndYamlFormats() throws URISyntaxException, LifecycleException {
+		File jsonInput = new File(ConfigurationParserTest.class.getResource("/example.json").toURI());
+		File yamlInput = new File(ConfigurationParserTest.class.getResource("/example2.yml").toURI());
+
+		ImmutableList<Server> servers = configurationParser.parseServers(of(jsonInput, yamlInput), false);
+
+		assertThat(servers).hasSize(2);
 	}
 
 	@Test(expected = LifecycleException.class)
@@ -82,10 +92,10 @@ public class ConfigurationParserTest {
 	@Test
 	public void mergeAlreadyExistingServerDoesNotModifyList() throws ValidationException {
 		List<Server> existingServers = new ArrayList<Server>();
-		existingServers.add(ServerFixtures.createServerWithOneQuery("example.net", "123", "toto:key=val"));
+		existingServers.add(dummyServer());
 
 		List<Server> newServers = new ArrayList<Server>();
-		newServers.add(ServerFixtures.createServerWithOneQuery("example.net", "123", "toto:key=val"));
+		newServers.add(dummyServer());
 
 		List<Server> merged = configurationParser.mergeServerLists(existingServers, newServers);
 
@@ -146,6 +156,7 @@ public class ConfigurationParserTest {
 				.setAlias("alias")
 				.setHost("host")
 				.setPort("8004")
+				.setPool(createPool())
 				.setCronExpression("cron")
 				.setNumQueryThreads(123)
 				.setPassword("pass")
@@ -159,6 +170,7 @@ public class ConfigurationParserTest {
 				.setAlias("alias")
 				.setHost("host")
 				.setPort("8004")
+				.setPool(createPool())
 				.setCronExpression("cron")
 				.setNumQueryThreads(123)
 				.setPassword("pass")
@@ -171,6 +183,7 @@ public class ConfigurationParserTest {
 				.setAlias("alias")
 				.setHost("host3")
 				.setPort("8004")
+				.setPool(createPool())
 				.setCronExpression("cron")
 				.setNumQueryThreads(123)
 				.setPassword("pass")

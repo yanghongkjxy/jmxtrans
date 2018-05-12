@@ -28,7 +28,8 @@ import com.google.common.collect.ImmutableMap;
 import com.googlecode.jmxtrans.exceptions.LifecycleException;
 import com.googlecode.jmxtrans.model.Query;
 import com.googlecode.jmxtrans.model.Result;
-import com.kaching.platform.testing.AllowDNSResolution;
+import com.googlecode.jmxtrans.model.Server;
+import com.googlecode.jmxtrans.model.ServerFixtures;
 import org.assertj.core.api.Assertions;
 import org.junit.Assert;
 import org.junit.Before;
@@ -51,7 +52,6 @@ import static com.google.common.collect.Maps.newHashMap;
 /**
  * Tests for {@link OpenTSDBGenericWriter}.
  */
-@AllowDNSResolution
 public class OpenTSDBGenericWriterTests {
 
 	protected Query mockQuery;
@@ -79,12 +79,12 @@ public class OpenTSDBGenericWriterTests {
 		tvMetricLinesSent = new LinkedList<String>();
 
 		// Setup common mock interactions.
-		Mockito.when(this.mockResult.getValues()).thenReturn(ImmutableMap.of("x-att1-x", (Object) "120021"));
+		Mockito.when(this.mockResult.getValue()).thenReturn("120021");
 		Mockito.when(this.mockResult.getAttributeName()).thenReturn("X-ATT-X");
+		Mockito.when(this.mockResult.getValuePath()).thenReturn(ImmutableList.<String>of());
 		Mockito.when(this.mockResult.getClassName()).thenReturn("X-DOMAIN.PKG.CLASS-X");
 		Mockito.when(this.mockResult.getTypeName()).
 				thenReturn("Type=x-type-x,Group=x-group-x,Other=x-other-x,Name=x-name-x");
-
 	}
 
 	@Test
@@ -97,14 +97,15 @@ public class OpenTSDBGenericWriterTests {
 				false,
 				settings);
 
-		Mockito.when(this.mockResult.getValues()).thenReturn(ImmutableMap.of("X-ATT-X", (Object) "120021"));
+		Mockito.when(this.mockResult.getAttributeName()).thenReturn("X-ATT-X");
+		Mockito.when(this.mockResult.getValue()).thenReturn("120021");
 
 		// Verify empty tag map.
 		Assertions.assertThat(writer.getTypeNames()).isEmpty();
 
 		writer.start();
-		writer.doWrite(null, this.mockQuery, ImmutableList.of(this.mockResult));
-		writer.stop();
+		writer.doWrite(ServerFixtures.dummyServer(), this.mockQuery, ImmutableList.of(this.mockResult));
+		writer.close();
 
 		Assert.assertTrue(
 				this.tvMetricLinesSent.get(0).matches("^X-DOMAIN.PKG.CLASS-X\\.X-ATT-X 0 120021 host=[^ ]*$"));
@@ -122,8 +123,8 @@ public class OpenTSDBGenericWriterTests {
 		OpenTSDBGenericWriter writer = createWriter("tags", tagMap);
 
 		writer.start();
-		writer.doWrite(null, this.mockQuery, ImmutableList.of(this.mockResult));
-		writer.stop();
+		writer.doWrite(ServerFixtures.dummyServer(), this.mockQuery, ImmutableList.of(this.mockResult));
+		writer.close();
 
 		Assert.assertTrue(this.tvMetricLinesSent.get(0).matches("^X-DOMAIN.PKG.CLASS-X\\.X-ATT-X 0 120021.*"));
 		Assert.assertTrue(this.tvMetricLinesSent.get(0).matches(".*\\bhost=.*"));
@@ -159,13 +160,13 @@ public class OpenTSDBGenericWriterTests {
 		Assert.assertFalse(startOutputCalled);
 		Assert.assertFalse(finishOutputCalled);
 
-		writer.doWrite(null, this.mockQuery, ImmutableList.of(this.mockResult));
+		writer.doWrite(ServerFixtures.dummyServer(), this.mockQuery, ImmutableList.of(this.mockResult));
 		Assert.assertTrue(prepareSenderCalled);
 		Assert.assertFalse(shutdownSenderCalled);
 		Assert.assertTrue(startOutputCalled);
 		Assert.assertTrue(finishOutputCalled);
 
-		writer.stop();
+		writer.close();
 		Assert.assertTrue(prepareSenderCalled);
 		Assert.assertTrue(shutdownSenderCalled);
 		Assert.assertTrue(startOutputCalled);
@@ -179,7 +180,7 @@ public class OpenTSDBGenericWriterTests {
 
 		writer.start();
 		writer.validateSetup(null, this.mockQuery);
-		writer.doWrite(null, this.mockQuery, ImmutableList.of(this.mockResult));
+		writer.doWrite(ServerFixtures.dummyServer(), this.mockQuery, ImmutableList.of(this.mockResult));
 	}
 
 	@Test
@@ -246,8 +247,8 @@ public class OpenTSDBGenericWriterTests {
 		public TestOpenTSDBGenericWriter(
 				@JsonProperty("typeNames") ImmutableList<String> typeNames,
 				@JsonProperty("debug") Boolean debugEnabled,
-				@JsonProperty("settings") Map<String, Object> settings) throws LifecycleException, UnknownHostException {
-			super(typeNames,  false, debugEnabled, "localhost", 1234, null, null, null, null, null, settings);
+				@JsonProperty("settings") Map<String, Object> settings) throws LifecycleException {
+			super(typeNames,  false, debugEnabled, "localhost", 1234, null, null, null, null, true, settings);
 		}
 
 		protected void prepareSender() throws LifecycleException {

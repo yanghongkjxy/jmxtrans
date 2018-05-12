@@ -34,12 +34,14 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
+import com.googlecode.jmxtrans.exceptions.LifecycleException;
 import com.googlecode.jmxtrans.model.OutputWriter;
 import com.googlecode.jmxtrans.model.OutputWriterAdapter;
 import com.googlecode.jmxtrans.model.OutputWriterFactory;
 import com.googlecode.jmxtrans.model.Query;
 import com.googlecode.jmxtrans.model.Result;
 import com.googlecode.jmxtrans.model.Server;
+import com.googlecode.jmxtrans.model.naming.KeyUtils;
 import com.googlecode.jmxtrans.model.output.support.ResultTransformerOutputWriter;
 import com.googlecode.jmxtrans.util.ObjectToDouble;
 import org.slf4j.Logger;
@@ -134,13 +136,10 @@ public class CloudWatchWriter implements OutputWriterFactory {
 			// Iterating through the list of query results
 
 			for (Result result : results) {
-				Map<String, Object> resultValues = result.getValues();
-				for (Map.Entry<String, Object> values : resultValues.entrySet()) {
-					try {
-						metricDatumList.add(processResult(result, values));
-					} catch (IllegalArgumentException iae) {
-						log.error("Could not convert result to double", iae);
-					}
+				try {
+					metricDatumList.add(processResult(result));
+				} catch (IllegalArgumentException iae) {
+					log.error("Could not convert result to double", iae);
 				}
 			}
 
@@ -148,23 +147,27 @@ public class CloudWatchWriter implements OutputWriterFactory {
 			cloudWatchClient.putMetricData(metricDataRequest);
 		}
 
-		private MetricDatum processResult(Result result, Map.Entry<String, Object> values) {
+		private MetricDatum processResult(Result result) {
 			// Sometimes the attribute name and the key of the value are the same
 			MetricDatum metricDatum = new MetricDatum();
-			if (result.getAttributeName().equals(values.getKey())) {
+			if (result.getValuePath().isEmpty()) {
 				metricDatum.setMetricName(result.getAttributeName());
 			} else {
-				metricDatum.setMetricName(result.getAttributeName() + "_" + values.getKey());
+				metricDatum.setMetricName(result.getAttributeName() + "_" + KeyUtils.getValuePathString(result));
 			}
 
 			metricDatum.setDimensions(dimensions);
 
 			// Converts the Objects to Double-values for CloudWatch
-			metricDatum.setValue(toDoubleConverter.apply(values.getValue()));
+			metricDatum.setValue(toDoubleConverter.apply(result.getValue()));
 			metricDatum.setTimestamp(new Date());
 			return metricDatum;
 		}
 
+		@Override
+		public void close() throws LifecycleException {
+			cloudWatchClient.shutdown();
+		}
 	}
 
 }

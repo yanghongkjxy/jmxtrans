@@ -23,7 +23,6 @@
 package com.googlecode.jmxtrans.model;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 
 public final class ResultFixtures {
 	private ResultFixtures() {}
@@ -36,7 +35,8 @@ public final class ResultFixtures {
 				"ObjectDomainName",
 				"VerboseMemory",
 				"type=Memory",
-				ImmutableMap.<String, Object>of("Verbose", true));
+				ImmutableList.<String>of(),
+				true);
 	}
 
 	public static ImmutableList<Result> singleTrueResult() {
@@ -51,18 +51,75 @@ public final class ResultFixtures {
 				"ObjectDomainName",
 				"VerboseMemory",
 				"type=Memory",
-				ImmutableMap.<String, Object>of("Verbose", false));
+				ImmutableList.<String>of(),
+				false);
 	}
 
 	public static Result numericResult() {
+		return numericResult(10);
+	}
+	public static Result numericResult(Object numericValue) {
 		return new Result(
 				0,
 				"ObjectPendingFinalizationCount",
 				"sun.management.MemoryImpl",
 				"ObjectDomainName",
-				"ObjectPendingFinalizationCount",
+				"MemoryAlias",
 				"type=Memory",
-				ImmutableMap.<String, Object>of("ObjectPendingFinalizationCount", 10));
+				ImmutableList.<String>of(),
+				numericValue);
+	}
+
+	public static Result numericResultWithColon() {
+		return numericResultWithColon(10);
+	}
+
+	public static Result numericResultWithColon(Object numericValue) {
+		return new Result(
+				0,
+				"Count",
+				"com.yammer.metrics.reporting.JmxReporter$Meter",
+				"fakehostname.example.com-org.openrepose.core",
+				null,
+				"type=\"ResponseCode\",scope=\"127.0.0.1:8008\",name=\"4XX\"",
+				ImmutableList.<String>of(),
+				numericValue);
+	}
+
+	public static Result stringResult() {
+		return stringResult("value is a string");
+	}
+
+	public static Result stringResult(String value) {
+		return new Result(
+			0,
+			"NonHeapMemoryUsage",
+			"sun.management.MemoryImpl",
+			"ObjectDomainName",
+			"MemoryAlias",
+			"type=Memory",
+			ImmutableList.<String>of("ObjectPendingFinalizationCount"),
+			value);
+	}
+
+	private static Result nonHeapMemoryResult(String valuePath, int value) {
+		return new Result(
+				0,
+				"NonHeapMemoryUsage",
+				"sun.management.MemoryImpl",
+				"ObjectDomainName",
+				"MemoryAlias",
+				"type=Memory",
+				ImmutableList.<String>of(valuePath),
+				value);
+	}
+
+	public static ImmutableList<Result> hashResults() {
+		return ImmutableList.of(
+				nonHeapMemoryResult("committed", 12345),
+				nonHeapMemoryResult("init", 23456),
+				nonHeapMemoryResult("max", -1),
+				nonHeapMemoryResult("used", 45678));
 	}
 
 	public static Result numericBelowCPrecisionResult() {
@@ -71,9 +128,10 @@ public final class ResultFixtures {
 				"ObjectPendingFinalizationCount",
 				"sun.management.MemoryImpl",
 				"ObjectDomainName",
-				"ObjectPendingFinalizationCount",
+				"MemoryAlias",
 				"type=Memory",
-				ImmutableMap.<String, Object>of("ObjectPendingFinalizationCount", Double.MIN_VALUE));
+				ImmutableList.<String>of(),
+				Double.MIN_VALUE);
 	}
 
 	public static Iterable<Result> singleNumericBelowCPrecisionResult() {
@@ -88,7 +146,8 @@ public final class ResultFixtures {
 				"ObjectDomainName",
 				"ObjectPendingFinalizationCount",
 				typeName,
-				ImmutableMap.<String, Object>of("ObjectPendingFinalizationCount", 10));
+				ImmutableList.<String>of(),
+				10);
 	}
 
 	public static ImmutableList<Result> singleFalseResult() {
@@ -104,5 +163,16 @@ public final class ResultFixtures {
 				numericResult(),
 				booleanTrueResult(),
 				booleanFalseResult());
+	}
+
+	public static ImmutableList<Result> dummyResultWithColon() {
+		return ImmutableList.of(
+				numericResultWithColon(),
+				booleanTrueResult());
+	}
+
+
+	public static ImmutableList<Result> singleResult(Result result) {
+		return ImmutableList.of(result);
 	}
 }

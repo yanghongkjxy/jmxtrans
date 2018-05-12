@@ -46,13 +46,19 @@ public class JmxTransConfiguration {
 	private boolean continueOnJsonError = false;
 
 	@Parameter(names = {"-j", "--json-directory"}, validateValueWith = ExistingDirectoryValidator.class)
-	@Setter private File jsonDir;
+	@Setter private File processConfigDir;
 	@Parameter(names = {"-f", "--json-file"}, validateValueWith = ExistingFileValidator.class)
-	@Setter private File jsonFile;
+	@Setter private File processConfigFile;
 
-	public File getJsonDirOrFile() {
-		if (jsonDir != null) return jsonDir;
-		return jsonFile;
+	@Parameter(
+			names = {"--config"},
+			description = "global jmxtrans configuration file",
+			validateValueWith = ExistingFileValidator.class)
+	@Getter @Setter private File configFile;
+
+	public File getProcessConfigDirOrFile() {
+		if (processConfigDir != null) return processConfigDir;
+		return processConfigFile;
 	}
 
 	@Parameter(
@@ -115,7 +121,7 @@ public class JmxTransConfiguration {
 	private int queryProcessorExecutorPoolSize = 10;
 
 	@Parameter(
-			names = {"--query-processor-executor-work-queue-capacity."},
+			names = {"--query-processor-executor-work-queue-capacity"},
 			description = "Size of the query work queue",
 			validateWith = PositiveInteger.class
 	)
@@ -131,11 +137,17 @@ public class JmxTransConfiguration {
 	private int resultProcessorExecutorPoolSize = 10;
 
 	@Parameter(
-			names = {"--result-processor-executor-work-queue-capacity."},
+			names = {"--result-processor-executor-work-queue-capacity"},
 			description = "Size of the result work queue",
 			validateWith = PositiveInteger.class
 	)
 	@Getter @Setter
 	private int resultProcessorExecutorWorkQueueCapacity = 100000;
 
+	@Parameter(
+			names = {"--use-separate-executors"},
+			description = "If this set every server node will be handed by separate executor."
+	)
+	@Getter @Setter
+	private boolean useSeparateExecutors = false;
 }

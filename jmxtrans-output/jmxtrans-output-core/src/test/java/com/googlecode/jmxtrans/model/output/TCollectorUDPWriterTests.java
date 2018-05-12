@@ -27,10 +27,11 @@ import com.google.common.collect.ImmutableMap;
 import com.googlecode.jmxtrans.exceptions.LifecycleException;
 import com.googlecode.jmxtrans.model.Query;
 import com.googlecode.jmxtrans.model.Result;
+import com.googlecode.jmxtrans.model.Server;
+import com.googlecode.jmxtrans.model.ServerFixtures;
 import org.hamcrest.Matchers;
 import org.junit.Assert;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
@@ -56,14 +57,12 @@ import static org.mockito.Matchers.eq;
  */
 @RunWith(PowerMockRunner.class)
 @PrepareForTest({TCollectorUDPWriter.class, DatagramSocket.class})
-@Ignore("Incompatible with LessIOSecurityManager, investigation required")
 public class TCollectorUDPWriterTests {
 	protected TCollectorUDPWriter writer;
 	protected Query mockQuery;
 	protected Result mockResult;
 	protected DatagramSocket mockDgSocket;
 	protected Logger mockLog;
-	protected ImmutableMap<String, Object> testValues;
 
 	@Before
 	public void setupTest() throws Exception {
@@ -77,8 +76,8 @@ public class TCollectorUDPWriterTests {
 		PowerMockito.whenNew(DatagramSocket.class).withAnyArguments().thenReturn(this.mockDgSocket);
 
 		// When results are needed.
-		testValues = ImmutableMap.<String, Object>of("x-att1-x", "120021");
-		Mockito.when(this.mockResult.getValues()).thenReturn(testValues);
+		Mockito.when(this.mockResult.getValue()).thenReturn("120021");
+		Mockito.when(this.mockResult.getValuePath()).thenReturn(ImmutableList.<String>of("x-att1-x"));
 		Mockito.when(this.mockResult.getAttributeName()).thenReturn("X-ATT-X");
 		Mockito.when(this.mockResult.getClassName()).thenReturn("X-DOMAIN.PKG.CLASS-X");
 		Mockito.when(this.mockResult.getTypeName()).thenReturn("Type=x-type-x");
@@ -106,8 +105,8 @@ public class TCollectorUDPWriterTests {
 
 		// Execute
 		this.writer.start();
-		this.writer.doWrite(null, this.mockQuery, ImmutableList.of(this.mockResult));
-		this.writer.stop();
+		this.writer.doWrite(ServerFixtures.dummyServer(), this.mockQuery, ImmutableList.of(this.mockResult));
+		this.writer.close();
 
 		// Verifications
 		Mockito.verify(this.mockDgSocket).send(packetCapture.capture());

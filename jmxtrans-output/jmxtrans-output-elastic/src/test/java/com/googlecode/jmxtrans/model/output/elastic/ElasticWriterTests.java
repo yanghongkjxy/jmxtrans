@@ -33,6 +33,7 @@ import io.searchbox.client.JestClient;
 import io.searchbox.client.JestResult;
 import io.searchbox.core.DocumentResult;
 import io.searchbox.core.Index;
+import io.searchbox.indices.CreateIndex;
 import io.searchbox.indices.IndicesExists;
 import io.searchbox.indices.mapping.PutMapping;
 import org.junit.Before;
@@ -50,7 +51,11 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static com.googlecode.jmxtrans.model.QueryFixtures.dummyQuery;
+import static com.googlecode.jmxtrans.model.ServerFixtures.DEFAULT_HOST;
+import static com.googlecode.jmxtrans.model.ServerFixtures.DEFAULT_PORT;
+import static com.googlecode.jmxtrans.model.ServerFixtures.SERVER_ALIAS;
 import static com.googlecode.jmxtrans.model.ServerFixtures.dummyServer;
+import static com.googlecode.jmxtrans.model.ServerFixtures.serverWithAliasAndNoQuery;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.isA;
@@ -79,7 +84,7 @@ public class ElasticWriterTests {
 	public void initializeMocks() throws IOException {
 		when(jestResultFalse.isSucceeded()).thenReturn(Boolean.FALSE);
 		when(jestResultTrue.isSucceeded()).thenReturn(Boolean.TRUE);
-		result = new Result(1, "attributeName", "className", "objDomain", "classNameAlias", "typeName", ImmutableMap.of("key", (Object)1));
+		result = new Result(1, "attributeName", "className", "objDomain", "classNameAlias", "typeName", ImmutableList.of("key"), 1);
 	}
 
 	@Test
@@ -89,6 +94,9 @@ public class ElasticWriterTests {
 		when(mockClient.execute(isA(IndicesExists.class))).thenReturn(jestResultFalse);
 
 		// return for call, is index created
+		when(mockClient.execute(isA(CreateIndex.class))).thenReturn(jestResultTrue);
+
+		// return for call, is mapping created
 		when(mockClient.execute(isA(PutMapping.class))).thenReturn(jestResultTrue);
 
 		// return for call, add index entry
@@ -99,7 +107,7 @@ public class ElasticWriterTests {
 
         writer.doWrite(dummyServer(), dummyQuery(), ImmutableList.of(result));
 
-        writer.stop();
+        writer.close();
 
         Mockito.verify(mockClient, times(4)).execute(Matchers.<Action<JestResult>>any());
 
@@ -107,7 +115,7 @@ public class ElasticWriterTests {
 
 	@Test
 	public void sendNonNumericMessageToElastic() throws Exception {
-		Result resultWithNonNumericValue = new Result(1, "attributeName", "className", "objDomain", "classNameAlias", "typeName", ImmutableMap.of("key", (Object)"abc"));
+		Result resultWithNonNumericValue = new Result(1, "attributeName", "className", "objDomain", "classNameAlias", "typeName", ImmutableList.of("key"), "abc");
 
 		writer.doWrite(dummyServer(), dummyQuery(), ImmutableList.of(resultWithNonNumericValue));
 
@@ -143,11 +151,7 @@ public class ElasticWriterTests {
 	@Test
     public void sendMessageToElasticAndVerify() throws Exception {
 
-        String host = "myHost";
-        String port = "56677";
-
-		String serverAlias = "myAlias";
-		Server serverWithKnownValues = Server.builder().setHost(host).setPort(port).setAlias(serverAlias).build();
+		Server serverWithKnownValues = serverWithAliasAndNoQuery();
 
         int epoch = 1123455;
         String attributeName = "attributeName123";
@@ -158,7 +162,7 @@ public class ElasticWriterTests {
         String key = "myKey";
         int value = 1122;
 
-        Result resultWithKnownValues = new Result(epoch, attributeName, className, objDomain, classNameAlias, typeName, ImmutableMap.of(key, (Object) value));
+        Result resultWithKnownValues = new Result(epoch, attributeName, className, objDomain, classNameAlias, typeName, ImmutableList.of(key), value);
 
         ArgumentCaptor<Index> argument = ArgumentCaptor.forClass(Index.class);
 
@@ -172,8 +176,8 @@ public class ElasticWriterTests {
 
         Gson gson = new Gson();
         String data = argument.getValue().getData(gson);
-        assertTrue("Contains host", data.contains(host));
-        assertTrue("Contains port", data.contains(port));
+        assertTrue("Contains host", data.contains(DEFAULT_HOST));
+        assertTrue("Contains port", data.contains(DEFAULT_PORT));
         assertTrue("Contains attribute name", data.contains(attributeName));
         assertTrue("Contains class name", data.contains(className));
         assertTrue("Contains object domain", data.contains(objDomain));
@@ -182,7 +186,7 @@ public class ElasticWriterTests {
         assertTrue("Contains timestamp", data.contains(String.valueOf(epoch)));
         assertTrue("Contains key", data.contains(key));
         assertTrue("Contains value", data.contains(String.valueOf(value)));
-		assertTrue("Contains serverAlias", data.contains(serverAlias));
+		assertTrue("Contains serverAlias", data.contains(SERVER_ALIAS));
 
     }
 
@@ -193,10 +197,30 @@ public class ElasticWriterTests {
 		when(mockClient.execute(isA(IndicesExists.class))).thenReturn(jestResultFalse);
 
         // return for call, is index created; return false
-        when(mockClient.execute(isA(PutMapping.class))).thenReturn(jestResultFalse);
+        when(mockClient.execute(isA(CreateIndex.class))).thenReturn(jestResultFalse);
 
         // return error message
 		when(jestResultFalse.getErrorMessage()).thenReturn("Unknown error creating index in elastic");
+
+		// expected to throw an exception
+		writer.start();
+
+	}
+
+	@Test(expected = LifecycleException.class)
+	public void mappingCreateFailure() throws Exception {
+
+		// return for call, does index exist
+		when(mockClient.execute(isA(IndicesExists.class))).thenReturn(jestResultFalse);
+
+		// return for call, is index created; return false
+		when(mockClient.execute(isA(CreateIndex.class))).thenReturn(jestResultTrue);
+
+		// return for call, is mapping created; return false
+		when(mockClient.execute(isA(PutMapping.class))).thenReturn(jestResultFalse);
+
+		// return error message
+		when(jestResultFalse.getErrorMessage()).thenReturn("Unknown error creating mapping in elastic");
 
 		// expected to throw an exception
 		writer.start();
@@ -212,7 +236,7 @@ public class ElasticWriterTests {
 		ElasticWriter writer;
 
 		try {
-			writer = new ElasticWriter(typenames, true, PREFIX, true, connectionUrl, settings);
+			writer = new ElasticWriter(typenames, true, PREFIX, true, connectionUrl, null, null, settings);
 		} catch (IOException e) {
 			throw new RuntimeException("Unexpected failure to creare elastic writer for test", e);
 		}

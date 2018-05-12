@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 #
 # The MIT License
 # Copyright © 2010 JmxTrans team
@@ -22,7 +23,6 @@
 # THE SOFTWARE.
 #
 
-# -*- coding: latin-1 -*-
 # vim:ai:expandtab:ts=4 sw=4
 
 # yaml2jmxtrans.py: Generate jmxtrans config from YAML format
@@ -52,8 +52,7 @@ class Queries(object):
     Generate query object snippets suitable for consumption by jmxtrans
     """
     def __init__(self, queries, query_attributes, query_defaults,
-            outputWriters, outputWriters_attributes, monitor_host,
-            monitor_port):
+            outputWriters, monitor_host, monitor_port):
         """
         Initialize Queries configuration with data from YAML structure, making
         named queries accessible by name
@@ -62,7 +61,6 @@ class Queries(object):
         self.query_attributes = query_attributes
         self.query_defaults = query_defaults
         self.outputWriters = []
-        self.outputWriters_attributes = outputWriters_attributes
         self.monitor_host = monitor_host
         self.monitor_port = monitor_port
 
@@ -76,18 +74,12 @@ class Queries(object):
                 else:
                     queryentry[attribute] = None
             self.queries[query['name']] = queryentry
-        
-        # outputWriters could be None if the YAML only has deprecated graphite_* configured 
+
+        # outputWriters could be None if the YAML only has deprecated graphite_* configured
         # (no outputWriters explicitly configured)
         if outputWriters != None:
             for outputWriter in outputWriters:
-                outputWriterEntry = {}
-                for attribute in outputWriters_attributes:
-                    if attribute in outputWriter:
-                      outputWriterEntry[attribute] = outputWriter[attribute]
-                    else:
-                      outputWriterEntry[attribute] = None
-                self.outputWriters.append(outputWriterEntry)
+                self.outputWriters.append(outputWriter)
 
     def create_query_entry(self, query_name, rootPrefix):
         """
@@ -107,10 +99,10 @@ class Queries(object):
             # Ignore typeName so it doesn't also appear in the query section
             if attr <> "typeName":
                 queryentry[attr] = self.queries[query_name][attr]
-        # If we did not specify an "attr", don't pass it to the query. JMXTrans will 
+        # If we did not specify an "attr", don't pass it to the query. JMXTrans will
         # poll ALL attributes in the MBEAN
         if queryentry["attr"] == None:
-           del queryentry["attr"] 
+           del queryentry["attr"]
         queryentry['outputWriters'] = self.create_output_writer_configuration(typeName, rootPrefix)
         return queryentry
 
@@ -124,7 +116,7 @@ class Queries(object):
                       'queries' : [] }
         for query_name in query_names:
             hostentry['queries'].append(self.create_query_entry(query_name, rootPrefix))
-            
+
 
         if username:
             hostentry['username'] = username
@@ -133,10 +125,10 @@ class Queries(object):
             hostentry['password'] = password
 
         (hostShortName, sep, rest) = host_name.partition(".")
-            
+
         if aliasTemplate:
-        	alias = Template(aliasTemplate)
-        	hostentry['alias'] = alias.substitute(hostname=host_name, query_port=query_port, setname=set_name, hostshortname=hostShortName)
+            alias = Template(aliasTemplate)
+            hostentry['alias'] = alias.substitute(hostname=host_name, query_port=query_port, setname=set_name, hostshortname=hostShortName)
 
         if urlTemplate:
             url = Template(urlTemplate)
@@ -157,7 +149,7 @@ class Queries(object):
             (host, aliasSep, alias) = host_name.partition(";")
             if aliasSep == "":
                 alias = global_host_alias
-            
+
             #If the alias contains a / then the second part of the string is the rootPrefix
             #If the rootPrefix is not found, then revert to the current default, "servers".
             (alias, aliasSep, rootPrefix) = alias.partition("/")
@@ -177,13 +169,13 @@ class Queries(object):
         """
         Generic output writer snippet template
         """
-        
+
         if isinstance(typeName, basestring):
-        	typeNames = [ typeName ]
+            typeNames = [ typeName ]
         else:
-        	typeNames = typeName
-        	
-        #For compatibility, if no outputWriters were configured, use the deprecated Graphite-specific config: 
+            typeNames = typeName
+
+        #For compatibility, if no outputWriters were configured, use the deprecated Graphite-specific config:
         if len(self.outputWriters) == 0:
             return [ {
             '@class' : 'com.googlecode.jmxtrans.model.output.GraphiteWriter',
@@ -194,10 +186,10 @@ class Queries(object):
                 'typeNames' : typeNames,
                 }
             } ]
-        
+
         writer = copy.deepcopy(self.outputWriters)
         for iter in range(len(self.outputWriters)):
-            writer[iter]['settings']['typeNames'] = typeNames
+            writer[iter]['typeNames'] = typeNames
         return writer
 
 class HostSets(object):
@@ -253,8 +245,7 @@ if __name__ == '__main__':
         "obj", "resultAlias", "attr", "typeName",
         "allowDottedKeys", "useAllTypeNames", "useObjDomainAsKey",
     ]
-    outputWriters_attributes = ["settings", "@class"]
-    
+
     if len(sys.argv) != 2:
         usage()
         sys.exit(1)
@@ -271,7 +262,7 @@ if __name__ == '__main__':
     graphite_port = yf['graphite_port'] if ('graphite_port' in yf) else None
 
     q = Queries(yf['queries'], query_attributes, yf.get('query_defaults', {}),
-        outputWriters, outputWriters_attributes, graphite_host, graphite_port)
+        outputWriters, graphite_host, graphite_port)
     h = HostSets(yf['sets'])
 
     for set_name in h.set_names():
@@ -280,3 +271,4 @@ if __name__ == '__main__':
         servers = q.create_host_set_configuration(s['hosts'],s['query_names'], query_port, s['username'], s['password'], s['urlTemplate'], set_name, global_host_alias)
         json.dump(servers,outfile, indent=1)
         outfile.close()
+

@@ -22,6 +22,7 @@
  */
 package com.googlecode.jmxtrans.model.output.support;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.googlecode.jmxtrans.model.OutputWriter;
 import com.googlecode.jmxtrans.model.OutputWriterAdapter;
 import com.googlecode.jmxtrans.model.Query;
@@ -30,6 +31,8 @@ import com.googlecode.jmxtrans.model.Server;
 import com.googlecode.jmxtrans.model.results.BooleanAsNumberValueTransformer;
 import com.googlecode.jmxtrans.model.results.IdentityValueTransformer;
 import com.googlecode.jmxtrans.model.results.ResultValuesTransformer;
+
+import com.googlecode.jmxtrans.exceptions.LifecycleException;
 
 import javax.annotation.Nonnull;
 
@@ -66,5 +69,12 @@ public class ResultTransformerOutputWriter<T extends OutputWriter> extends Outpu
 		return new ResultTransformerOutputWriter<>(new ResultValuesTransformer(new IdentityValueTransformer()), target);
 	}
 
+	public void close() throws LifecycleException {
+		target.close();
+	}
 
+	@VisibleForTesting
+	T getTarget() {
+		return target;
+	}
 }

@@ -25,8 +25,6 @@ package com.googlecode.jmxtrans.model.output.support;
 import com.googlecode.jmxtrans.test.IntegrationTest;
 import com.googlecode.jmxtrans.test.RequiresIO;
 import com.googlecode.jmxtrans.test.TCPEchoServer;
-import com.kaching.platform.testing.AllowNetworkAccess;
-import com.kaching.platform.testing.AllowNetworkListen;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
@@ -38,10 +36,9 @@ import static com.googlecode.jmxtrans.model.ResultFixtures.dummyResults;
 import static com.googlecode.jmxtrans.model.ServerFixtures.dummyServer;
 import static com.jayway.awaitility.Awaitility.await;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
 
 @Category({IntegrationTest.class, RequiresIO.class})
-@AllowNetworkAccess(endpoints = "127.0.0.1:*")
-@AllowNetworkListen(ports = 0)
 public class TcpOutputWriterBuilderIT {
 
 	@Rule public TCPEchoServer tcpEchoServer = new TCPEchoServer();
@@ -54,16 +51,41 @@ public class TcpOutputWriterBuilderIT {
 				.build();
 
 		outputWriter.doWrite(dummyServer(), dummyQuery(), dummyResults());
-		outputWriter.stop();
+		outputWriter.close();
 
 		await().atMost(200, MILLISECONDS).until(messageReceived("message"));
 	}
 
-	private Callable<Boolean> messageReceived(final String message) {
+	@Test
+	public void messageIsSentOnDistinctConnectionAfterTimeout() throws Exception {
+		int timeout = 15;
+		WriterPoolOutputWriter<DummySequenceWriterBasedOutputWriter> outputWriter = TcpOutputWriterBuilder.builder(
+				tcpEchoServer.getLocalSocketAddress(),
+				new DummySequenceWriterBasedOutputWriter("messageTimeout"))
+				.setSocketExpirationMs(timeout)
+				.build();
+
+		int connectionsBefore = tcpEchoServer.getConnectionsAccepted();
+		outputWriter.doWrite(dummyServer(), dummyQuery(), dummyResults());
+		Thread.sleep(timeout + 10);
+		outputWriter.doWrite(dummyServer(), dummyQuery(), dummyResults());
+		outputWriter.close();
+
+		await().atMost(200, MILLISECONDS).until(messageReceived("messageTimeout0", "messageTimeout1"));
+		int connectionsCreated = tcpEchoServer.getConnectionsAccepted() - connectionsBefore;
+		assertThat(connectionsCreated).isGreaterThan(1);
+	}
+
+	private Callable<Boolean> messageReceived(final String... messages) {
 		return new Callable<Boolean>() {
 			@Override
 			public Boolean call() throws Exception {
-				return tcpEchoServer.messageReceived(message);
+				for (String message : messages) {
+					if (!tcpEchoServer.messageReceived(message)) {
+						return false;
+					}
+				}
+				return true;
 			}
 		};
 	}

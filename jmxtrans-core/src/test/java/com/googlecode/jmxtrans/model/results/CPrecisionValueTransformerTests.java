@@ -68,4 +68,52 @@ public class CPrecisionValueTransformerTests {
 		assertThat(transformed).isNull();
 	}
 
+	@Test
+	public void nanDoubleIsReturnedNull() {
+		ValueTransformer transformer = new CPrecisionValueTransformer();
+		Object transformed = transformer.apply(Double.NaN);
+
+		assertThat(transformed).isNull();
+	}
+
+	@Test
+	public void nanFloatIsReturnedNull() {
+		ValueTransformer transformer = new CPrecisionValueTransformer();
+		Object transformed = transformer.apply(Float.NaN);
+
+		assertThat(transformed).isNull();
+	}
+
+	@Test
+	public void negativeInfinityDoubleIsReturnedNull() {
+		ValueTransformer transformer = new CPrecisionValueTransformer();
+		Object transformed = transformer.apply(Double.NEGATIVE_INFINITY);
+
+		assertThat(transformed).isNull();
+	}
+
+	@Test
+	public void positiveInfinityDoubleIsReturnedNull() {
+		ValueTransformer transformer = new CPrecisionValueTransformer();
+		Object transformed = transformer.apply(Double.POSITIVE_INFINITY);
+
+		assertThat(transformed).isNull();
+	}
+
+	@Test
+	public void negativeInfinityFloatIsReturnedNull() {
+		ValueTransformer transformer = new CPrecisionValueTransformer();
+		Object transformed = transformer.apply(Float.NEGATIVE_INFINITY);
+
+		assertThat(transformed).isNull();
+	}
+
+	@Test
+	public void positiveInfinityFloatIsReturnedNull() {
+		ValueTransformer transformer = new CPrecisionValueTransformer();
+		Object transformed = transformer.apply(Float.POSITIVE_INFINITY);
+
+		assertThat(transformed).isNull();
+	}
+
 }
